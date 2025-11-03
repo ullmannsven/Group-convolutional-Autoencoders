@@ -26,17 +26,19 @@ import torch
 
 from torchpdes.neuralnetworks.autoencoders import GCNNAutoencoder2D, RotationGCNNAutoencoder2D, CNNAutoencoder2D, RotationUpsamplingGCNNAutoencoder2D
 from torchpdes.models.instationary.nonlinear_manifolds import NonlinearManifoldsMOR2D
-from torchpdes.pdes.instationary import wave_2D
-from scale import Scaler
+from scaling.scale import Scaler
+from experiment_setup import WaveExperimentConfig, WaveExperiment
 
 def test_wave_2D():
 
-    p_red = 16
-    Nx = 256
-    Ny = 256
-    sig_pre = 0.5
-    timestep_factor = 5
-    
+    # Configure experiment
+    config = WaveExperimentConfig()
+    experiment = WaveExperiment(config)
+
+    timestep_factor = config.timestep_factor
+    Nx = config.Nx
+    Ny = config.Ny
+  
     script_dir = os.path.dirname(os.path.abspath(__file__))
     nn_save_filepath = os.path.join(script_dir, "checkpoints")
     script_dir = Path(script_dir)
@@ -49,22 +51,11 @@ def test_wave_2D():
         parameters = pickle.load(f)
 
     assert f"_{Nx}x{Ny}_" in str(nn_save_filepath)
-    assert f"p_{p_red}_" in str(nn_save_filepath)
+    assert f"p_{config.p_red}_" in str(nn_save_filepath)
 
-    x_flow = True
-    T = 1
-    nt = 1000 #number of timesteps per second
-    dims = (2, Nx, Ny)
-
-    fom = wave_2D(T=T, Nx=Nx, Ny=Ny, sig_pre=sig_pre, nt=nt, x_flow=x_flow)
-    scaler = Scaler(dims=dims)
+    scaler = Scaler(dims=config.dims)
     
-    model = NonlinearManifoldsMOR2D(network=CNNAutoencoder2D,
-                                    scaler=scaler,
-                                    dims=dims,
-                                    network_parameters=parameters['network_parameters']
-                                    )
-
+    model = NonlinearManifoldsMOR2D(network=CNNAutoencoder2D, scaler=scaler, dims=config.dims, network_parameters=parameters['network_parameters'])
     model.load_neural_network(path=nn_save_filepath)
     model.network.eval()
 
@@ -72,13 +63,13 @@ def test_wave_2D():
     print("so viele parameter hat mein netz", trainable)
 
     mu_test_val = 1.25
-    mu_test = fom.parameters.parse({'mu': mu_test_val})
+    mu_test = experiment.fom.parameters.parse({'mu': mu_test_val})
     print(f'Solving for test parameter = {mu_test} ... ')
-    u_test = fom.solve(mu_test)
+    u_test = experiment.solve_fom().to_numpy()
     print("done with FOM solve")
 
     # some approximation results:
-    amount_of_steps = int(T*nt/timestep_factor)
+    amount_of_steps = int(config.T*config.nt/timestep_factor)
     errors = np.zeros((amount_of_steps, 1))
     errors_den = np.zeros((amount_of_steps, 1))
 
@@ -88,7 +79,7 @@ def test_wave_2D():
     errors_p_den =  np.zeros((amount_of_steps, 1))
 
     for i in range(amount_of_steps):
-        sol_rot = u_test.to_numpy()[:, timestep_factor*i] - u_test.to_numpy()[:, 0]
+        sol_rot = u_test.to_numpy()[:, config.timestep_factor*i] - u_test.to_numpy()[:, 0]
 
         print("iteration", i)
         
@@ -105,13 +96,13 @@ def test_wave_2D():
         sol_rot_dec = scaler.prolongate(scaler.unscale(sol_rot_dec))
         
         errors[i, 0] = np.linalg.norm(sol_rot.reshape(-1,1) - sol_rot_dec.reshape(-1,1))**2
-        errors_den[i, 0] = np.linalg.norm(u_test.to_numpy()[:, timestep_factor*i])**2
+        errors_den[i, 0] = np.linalg.norm(u_test[:, timestep_factor*i])**2
 
         errors_q[i, 0] = np.linalg.norm(sol_rot.reshape(-1,1)[:Nx*Ny] - sol_rot_dec.reshape(-1,1)[:Nx*Ny])**2
-        errors_q_den[i, 0] = np.linalg.norm(u_test.to_numpy()[:Nx*Ny, timestep_factor*i])**2
+        errors_q_den[i, 0] = np.linalg.norm(u_test[:Nx*Ny, timestep_factor*i])**2
 
         errors_p[i, 0] = np.linalg.norm(sol_rot.reshape(-1,1)[Nx*Nx:] - sol_rot_dec.reshape(-1,1)[Nx*Ny:])**2
-        errors_p_den[i, 0] = np.linalg.norm(u_test.to_numpy()[Nx*Ny:, timestep_factor*i])**2
+        errors_p_den[i, 0] = np.linalg.norm(u_test[Nx*Ny:, timestep_factor*i])**2
 
     print("error", np.sqrt(np.sum(errors, axis=0) / np.sum(errors_den, axis=0)))
     print("error q", np.sqrt(np.sum(errors_q, axis=0) / np.sum(errors_q_den, axis=0)))

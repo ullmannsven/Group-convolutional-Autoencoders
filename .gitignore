@@ -13,6 +13,8 @@ pip-wheel-metadata/
 # Notebooks
 .ipynb_checkpoints/
 
+
+
 # IDE / editors
 .vscode/
 .idea/
@@ -32,6 +34,9 @@ mlruns/
 data/
 datasets/
 checkpoints/
+snapshots_grid/
+mor_results/
+GCNN_tests/
 *.pt
 *.pth
 *.ckpt
@@ -43,4 +48,5 @@ checkpoints/
 # PyTest / coverage
 .pytest_cache/
 .coverage
-htmlcov/
+htmlcov/. \ t e s t s \ w a v e \ m o r _ r e s u l t s \  
+ 
