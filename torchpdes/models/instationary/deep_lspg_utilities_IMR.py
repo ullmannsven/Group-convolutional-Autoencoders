@@ -22,11 +22,11 @@ def LSPG_residuum(model, x, xn_1, mu, dt, fom):
     return x - xn_1 - dt * rhs
 
 
-def Psi_matrix(model, x, xn_1, mu, dt, fom, u_ref):
+def Psi_matrix(model, x, xn_1, mu, dt, fom, u_ref, scaled_data):
     """Computes Petrov-Galerkin test matrix Psi."""
-    jac = get_jacobian(model.network.decoder, x, model).detach().numpy()
-    decoded = apply_decoder(x, model)
-    decoded_xn = apply_decoder(xn_1, model)
+    jac = get_jacobian(model.network.decoder, x, model, scaled_data).detach().numpy()
+    decoded = apply_decoder(x, model, scaled_data)
+    decoded_xn = apply_decoder(xn_1, model, scaled_data)
 
     u_ref_1, u_ref_2 = np.split(u_ref, [int(u_ref.shape[0]/2)])
     decoded_1, decoded_2 = np.split(decoded, [int(decoded.shape[0]/2)])
@@ -48,25 +48,25 @@ def Psi_matrix(model, x, xn_1, mu, dt, fom, u_ref):
     
 
 
-def LSPG_line_search(model, x, p, xn_1, mu, dt, fom, u_ref, min_stepsize=5e-2, frac=0.5, c_1=1e-4, c_2=0.9):
+def LSPG_line_search(model, x, p, xn_1, mu, dt, fom, u_ref, scaled_data, min_stepsize=5e-2, frac=0.5, c_1=1e-4, c_2=0.9):
     """Performs line search according to Strong Wolfe conditions."""
     # initialize step size
     alpha = 1.0
-    decoded = apply_decoder(x, model)
-    decoded_xn_1 = apply_decoder(xn_1, model)
+    decoded = apply_decoder(x, model, scaled_data)
+    decoded_xn_1 = apply_decoder(xn_1, model, scaled_data)
 
     # compute residual for current position
     res_orig = LSPG_residuum(model, u_ref + decoded, u_ref + decoded_xn_1, mu, dt, fom)
-    Psi_mat = Psi_matrix(model, x, xn_1, mu, dt, fom, u_ref)
+    Psi_mat = Psi_matrix(model, x, xn_1, mu, dt, fom, u_ref, scaled_data)
     #res_norm_orig = np.linalg.norm(Psi_mat.T @ res_orig)
     #p_times_grad_orig = p @ (Psi_mat.T @ res_orig)
     res_norm_orig = 0.5 * np.linalg.norm(Psi_mat.T @ res_orig)**2
     p_times_grad_orig = np.dot(p, Psi_mat.T @ Psi_mat @ Psi_mat.T @ res_orig)
     
     # compute decoded full-order representation of reduced coordinates given by x + alpha* p
-    decoded = apply_decoder(x + alpha * p, model)
+    decoded = apply_decoder(x + alpha * p, model, scaled_data)
     res_update = LSPG_residuum(model, u_ref + decoded, u_ref + decoded_xn_1, mu, dt, fom)
-    Psi_mat = Psi_matrix(model, x + alpha * p, xn_1, mu, dt, fom, u_ref)
+    Psi_mat = Psi_matrix(model, x + alpha * p, xn_1, mu, dt, fom, u_ref, scaled_data)
     #res_norm_update = np.linalg.norm(Psi_mat.T @ res_update)
     #p_times_grad_update = p @ (Psi_mat.T @ res_update)
     res_norm_update = 0.5 * np.linalg.norm(Psi_mat.T @ res_update)**2
@@ -77,9 +77,9 @@ def LSPG_line_search(model, x, p, xn_1, mu, dt, fom, u_ref, min_stepsize=5e-2, f
           or abs(p_times_grad_update) > abs(c_2 * p_times_grad_orig)):
         
         alpha = alpha * frac
-        decoded = apply_decoder(x + alpha * p, model)
+        decoded = apply_decoder(x + alpha * p, model, scaled_data)
         res_update = LSPG_residuum(model, u_ref + decoded, u_ref + decoded_xn_1, mu, dt, fom)
-        Psi_mat = Psi_matrix(model, x + alpha * p, xn_1, mu, dt, fom, u_ref)
+        Psi_mat = Psi_matrix(model, x + alpha * p, xn_1, mu, dt, fom, u_ref, scaled_data)
         res_norm_update = 0.5 * np.linalg.norm(Psi_mat.T @ res_update)**2
         p_times_grad_update = np.dot(p, Psi_mat.T @ Psi_mat @ Psi_mat.T @ res_update)
         #res_norm_update = np.linalg.norm(Psi_mat.T @ res_update)
@@ -90,14 +90,13 @@ def LSPG_line_search(model, x, p, xn_1, mu, dt, fom, u_ref, min_stepsize=5e-2, f
         if alpha * frac < min_stepsize:
             break
 
-    return alpha, res_update, np.sqrt(2*res_norm_update), True
+    return alpha, res_update, np.sqrt(2*res_norm_update)
 
-import torch
 
-def LSPG_quasi_newton(model, xn_1, mu, dt, fom, u_ref, tol=1e-7, max_steps=100):
+def LSPG_quasi_newton(model, xn_1, mu, dt, fom, u_ref, scaled_data, tol=1e-7, max_steps=100):
     """Performs Quasi-Newton iteration."""
     x_new = xn_1
-    decoded = apply_decoder(x_new, model)
+    decoded = apply_decoder(x_new, model, scaled_data)
 
     #Note: This computes the residual without multiplication of the psi matrix
     res = LSPG_residuum(model, u_ref + decoded, u_ref + decoded, mu, dt, fom)
@@ -109,21 +108,13 @@ def LSPG_quasi_newton(model, xn_1, mu, dt, fom, u_ref, tol=1e-7, max_steps=100):
     # perform Quasi-Newton steps until norm of the residual has reached prescribed tolerance
     #not (np.linalg.norm(p) < tol)
     while (res_norm > tol and not (step >= max_steps)):
-        Psi_mat = Psi_matrix(model, x_new, xn_1, mu, dt, fom, u_ref)
+        Psi_mat = Psi_matrix(model, x_new, xn_1, mu, dt, fom, u_ref, scaled_data)
         res_disc = Psi_mat.T @ res
-        
-        # Get the encoder's preferred latent code for current full-order state
-        #current_full_state = model.scaler.prolongate(u_ref + apply_decoder(x_new, model))
-        
-        # Encode to find "correct" latent representation
-        #with torch.no_grad():
-        #    current_full_tensor = torch.as_tensor(model.scaler.restrict(current_full_state.reshape(-1,1) - u_approx_full[0].reshape(-1,1)), dtype=torch.double, device="cpu").unsqueeze(0)
-        #    x_encoder = model.network.encode(current_full_tensor).detach().cpu().numpy().T
-        
+      
         PsiT_Psi = Psi_mat.T @ Psi_mat
         p = np.linalg.solve(PsiT_Psi, - res_disc).T
        
-        alpha, res, res_norm, success = LSPG_line_search(model, x_new, p, xn_1, mu, dt, fom, u_ref)
+        alpha, res, res_norm = LSPG_line_search(model, x_new, p, xn_1, mu, dt, fom, u_ref, scaled_data)
 
         x_new = x_new + alpha * p
         step += 1
