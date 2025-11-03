@@ -21,6 +21,7 @@ class BaseModel:
     def train(self, parameters_training={}):
         return self.trainer.train(**parameters_training)
 
+    #TODO this is done differently on the server
     def save_neural_network(self, model_to_save=None, path=None):
         assert model_to_save is not None
         if path is None:
