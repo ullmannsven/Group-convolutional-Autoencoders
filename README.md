@@ -66,7 +66,7 @@ Defines all autoencoder architectures used in the project. The key variants are:
 | `UpsamplingCNNAutoencoder2D` | Standard (non-equivariant) CNN autoencoder baseline with the same upsampling decoder architecture. |
 | `RotationUpsamplingGCNNAutoencoder2D` | Group-equivariant autoencoder with C4 or C8 rotational symmetry, using ESCNN. The encoder uses group convolutions; the decoder uses upsampling transposed group convolutions. |
 | `TrivialUpsamplingGCNNAutoencoder2D` | GCNN autoencoder with H=C1 — equivariant in translation action (as standard CNNs) but without non-trivial group action on features. |
-| `RotationUpsamplingGCNN2D_TorchOnly` | GCNN autoencoder for H=C_4, implemented using pyTorch and thus implementing group convolutions "by hand" instead of using escnn. |
+| `RotationUpsamplingGCNN2D_TorchOnly` | GCNN autoencoder for H=C4, implemented using pyTorch and thus implementing group convolutions "by hand" instead of using escnn. |
 
 All autoencoders share the same encode/decode interface and are selected via the `AE_REGISTRY` in the test scripts.
 
@@ -77,7 +77,7 @@ Early stopping procedure, that checkpoints the best trained model via computing 
 Contains the complete training routine for a neural network, in this case employed only for autoencoders. Different loss functions, including the MSE, a weighted MSE, a physical aware MSE and the symplectic loss term are included here. 
 
 ### `models/manifold_galerkin_utilities_IMR`
-Implements the **manifold Galerkin** time integration: a quasi-Newton solver (`Galerkin_quasi_newton`) for implicit midpoint rule (IMR) timestepping on the reduced nonlinear manifold. The residual is formulated via Galerkin projection of the FOM onto the reduced manifold via the trained autoencoder
+Implements the **manifold Galerkin** time integration: a quasi-Newton solver (`Galerkin_quasi_newton`) for implicit midpoint rule (IMR) timestepping on the reduced nonlinear manifold. The residual is formulated via Galerkin projection of the FOM onto the reduced manifold via the trained autoencoder.
 
 ### `models/manifold_lspg_utilities_IMR.py`
 Implements the **manifold LSPG** (Least-Squares Petrov-Galerkin) time integration: a quasi-Newton solver (`LSPG_quasi_newton`) for IMR timestepping. Differs from Galerkin in the test space used for projection — LSPG minimizes the full-order residual in a least-squares sense.
@@ -93,33 +93,27 @@ Wraps an autoencoder into a full MOR model (`NonlinearManifoldsMOR2D`). Handles 
 ## Experiment for the pure right moving wave (`tests/90wave/`)
 
 ### `tests/90wave/AE_results/` 
-
 Projection results when using autoencoders. Contains results regarding GCNN, UpsamplingCNN and UpsamplingCNN_symplectic for the test parameters `mu ∈ {0.6, 0.8}`. The mean of these two is stored in seperate files (named without the mu-value at the end).
 
 ### `tests/90wave/checkpoints/` 
-
 Checkpoints of the selected autoencoders for different AE setups and reduced basis sizes. 
 
 ### `tests/90wave/CL_results/` 
-
 Results when using CL as projection method as well as CL-SG as reduction method. Contains projections error, reduction errors as well as the computed RB using CL (once centered and once uncentered). 
 
 ### `tests/90wave/mor_results/` 
-
 Results when using different autoencoder variants. 
 
 ### `tests/90wave/network_parameters/`
 Contains the network parameters that corresponds to the checkpoints in `tests/90wave/checkpoints`. 
 
 ### `tests/90wave/pod_results/` 
-
 Results regarding experiments when using POD as projection method as well as POD-G as reduction method. Contains projections error, reduction errors as well as the computed RB using CL (once centered and once uncentered).
 
 ### `tests/90wave/scaling/` 
 Contains `scale.py`, which performs scaling (and inverse scaling) and the reshaping (and prolongation).
 
 ### `tests/90wave/snapshots_grid/`
-
 Currently empty as the FOM solutions are too large to store on github. Then FOM solutions can be obtained using `wave_create_snapshots`. 
 
 
@@ -130,16 +124,10 @@ These scripts precompute reduced bases from training snapshots. We ran them once
 ### `compute_cl_basis.py` — Cotangent Lift Basis
 Loads training snapshots for `mu ∈ {0.5, 0.75, 1.0}`, assembles a phase-space snapshot matrix, and computes a symplectic reduced basis using pyMOR's `psd_cotangent_lift`. Saves the basis as a pickle file.
 
-```bash
-python compute_cl_basis.py --max_modes 50 --centered
-```
 
 ### `compute_pod_basis.py` — POD Basis
 Loads the same training snapshots and computes a standard POD basis using pyMOR's `pod` function. Saves the basis as a `.npy` file.
 
-```bash
-python compute_pod_basis.py --modes 50 --centered
-```
 
 ---
 
@@ -163,23 +151,13 @@ These scripts evaluate how well each reduced representation can approximate test
 ### `proj_error_AE.py` — Autoencoder Projection Error
 Encodes and decodes test snapshots through the trained autoencoder and computes the relative reconstruction error for each latent dimension size.
 
-```bash
-python proj_error_AE.py --ae_name RotationUpsamplingGCNN_C8 --p_red 4 8 12 16 --mu_val 0.8 --write_csv False
-```
 
 ### `proj_error_cl.py` — Cotangent Lift Projection Error
 Projects test snapshots onto the CL reduced basis using symplectic projection and computes the relative error for each basis size.
 
-```bash
-python proj_error_cl.py --p_red 4 8 12 16 --mu_val 0.8 --rb_size 50 --write_csv False
-```
 
 ### `proj_error_pod.py` — POD Projection Error
 Projects test snapshots onto the POD basis via standard orthogonal projection and computes the relative error for each basis size.
-
-```bash
-python proj_error_pod.py --p_red 4 8 12 16 --mu_val 0.6 --rb_size 50 --centered --write_csv
-```
 
 ---
 
@@ -190,30 +168,16 @@ These scripts run a full reduced-order model time integration and compare agains
 ### `test_wave_cl_sg.py` — Cotangent Lift + symplectic Galerkin (ueses pyMOR reductor)
 Uses pyMOR's `QuadraticHamiltonianRBReductor` to build and solve a symplectic Galerkin ROM on the CL basis. Computes reconstruction errors against test snapshots.
 
-```bash
-python test_wave_cl_sg.py --p_red 4 8 12 16 --mu_val 0.6 --rb_size 50 --visualize --save_data
-```
 
 ### `test_wave_manifold_galerkin.py` — Autoencoder + manifold Galerkin
 Runs the manifold Galerkin ROM: the autoencoder defines the nonlinear reduced manifold, and the implicit midpoint rule is solved via quasi-Newton iteration with Galerkin projection.
 
-```bash
-python test_wave_manifold_galerkin.py --ae_name RotationUpsamplingGCNN_C8 --p_red 8 --mu_val 0.8 --visualize
-```
 
 ### `test_wave_manifold_lspg.py` — Autoencoder + manifold LSPG
 Same as manifold Galerkin but uses LSPG projection (minimizes the full-order residual) instead of Galerkin projection. Generally more robust but more expensive per timestep.
 
-```bash
-python test_wave_manifold_lspg.py --ae_name RotationUpsamplingGCNN_C8 --p_red 8 --mu_val 0.8 --visualize --save_data
-```
-
 ### `test_wave_pod_galerkin.py` — POD + Galerkin (uses pyMOR reductor)
 Uses pyMOR's `InstationaryRBReductor` to build and solve a standard Galerkin ROM on the POD basis.
-
-```bash
-python test_wave_pod_galerkin.py --p_red 4 8 12 16 --mu_val 0.8 --rb_size 50 --visualize --save_data
-```
 
 ## Training 
 
