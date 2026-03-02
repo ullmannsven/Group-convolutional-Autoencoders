@@ -1,4 +1,4 @@
-# Group Convolutional Autoencoders for Model Order Reduction
+# Model order reduction using group convolutional autoencoders
 
 This repository implements group-equivariant convolutional autoencoders combined with structure-preserving model order reduction (MOR) techniques for parametric dynamical systems. The primary application is the 2D wave equation, where rotational symmetry (C4/C8 equivariance) is exploited to improve generalization across different flow directions.
 
