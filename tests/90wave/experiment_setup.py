@@ -232,7 +232,7 @@ class WaveExperiment:
         Ly = self.config.Ly
         sig_pre = self.config.sig_pre
 
-        if self.x_flow:
+        if self.config.x_flow:
             hx = Lx/Nx
             hy = Ly/(Ny-1)
         else: 
@@ -281,7 +281,7 @@ class WaveExperiment:
         Hpp = NumpyMatrixOperator(sp.eye(Nx*Ny, format='csr'))
         H_op = BlockDiagonalOperator([Hqq, Hpp])
 
-        if self.convfig.x_flow:
+        if self.config.x_flow:
             x = np.linspace(0, Lx, Nx, endpoint=False)  # periodic x
             y = np.linspace(0, Ly, Ny, endpoint=True)   # Neumann y
         else:

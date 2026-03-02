@@ -107,38 +107,11 @@ if __name__ == '__main__':
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument(
-        '--mu_val',
-        type=float,
-        default=0.6,
-        help='Test parameter value mu (default: 0.6)',
-    )
-    parser.add_argument(
-        '--p_red',
-        type=int,
-        nargs='+',
-        default=[4, 8, 12, 16],
-        metavar='P',
-        help='Reduced dimension(s) to evaluate (default: 4 8 12 16)',
-    )
-    parser.add_argument(
-        '--rb_size',
-        type=int,
-        default=50,
-        help='Size of the reduced basis to load (default: 50)',
-    )
-    parser.add_argument(
-        '--centered',
-        action='store_true',
-        default=False,
-        help='Load the centered reduced basis. Default: uncentered.',
-    )
-    parser.add_argument(
-        '--write_csv',
-        action='store_true',
-        default=False,
-        help='Write projection errors to a CSV file.',
-    )
+    parser.add_argument('--mu_val', type=float, default=0.6, help='Test parameter value mu (default: 0.6)')
+    parser.add_argument('--p_red',type=int,nargs='+',default=[4, 8, 12, 16],metavar='P',help='Reduced dimension(s) to evaluate (default: 4 8 12 16)')
+    parser.add_argument('--rb_size',type=int,default=50,help='Size of the reduced basis to load (default: 50)')
+    parser.add_argument('--centered',action='store_true',default=False,help='Load the centered reduced basis. Default: uncentered.',)
+    parser.add_argument('--write_csv',action='store_true',default=False,help='Write projection errors to a CSV file.')
 
     args = parser.parse_args()
     proj_error_pod(mu_val=args.mu_val, p_red_values=args.p_red, rb_size=args.rb_size, centered=args.centered, write_csv=args.write_csv)
