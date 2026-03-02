@@ -143,6 +143,7 @@ python compute_pod_basis.py [--modes 50] [--centered]
 
 ---
 
+## Experiment setup
 
 ### `tests/90wave/experiment_setup.py` 
 
@@ -163,21 +164,21 @@ These scripts evaluate how well each reduced representation can approximate test
 Encodes and decodes test snapshots through the trained autoencoder and computes the relative reconstruction error for each latent dimension size.
 
 ```bash
-python proj_error_AE.py --ae_name RotationUpsamplingGCNN_C8 [--p_red 4 8 12 16] [--mu_val 0.8] [--write_csv]
+python proj_error_AE.py --ae_name RotationUpsamplingGCNN_C8 --p_red 4 8 12 16 --mu_val 0.8 --write_csv False
 ```
 
 ### `proj_error_cl.py` — Cotangent Lift Projection Error
 Projects test snapshots onto the CL reduced basis using symplectic projection and computes the relative error for each basis size.
 
 ```bash
-python proj_error_cl.py [--p_red 4 8 12 16] [--mu_val 0.6] [--rb_size 50] [--write_csv]
+python proj_error_cl.py --p_red 4 8 12 16 --mu_val 0.8 --rb_size 50 --write_csv False
 ```
 
 ### `proj_error_pod.py` — POD Projection Error
 Projects test snapshots onto the POD basis via standard orthogonal projection and computes the relative error for each basis size.
 
 ```bash
-python proj_error_pod.py [--p_red 4 8 12 16] [--mu_val 0.6] [--rb_size 50] [--centered] [--write_csv]
+python proj_error_pod.py --p_red 4 8 12 16 --mu_val 0.6 --rb_size 50 --centered --write_csv
 ```
 
 ---
@@ -186,32 +187,32 @@ python proj_error_pod.py [--p_red 4 8 12 16] [--mu_val 0.6] [--rb_size 50] [--ce
 
 These scripts run a full reduced-order model time integration and compare against reference snapshots.
 
-### `test_wave_CL_galerkin.py` — Cotangent Lift + Galerkin (pyMOR)
+### `test_wave_cl_sg.py` — Cotangent Lift + symplectic Galerkin (ueses pyMOR reductor)
 Uses pyMOR's `QuadraticHamiltonianRBReductor` to build and solve a symplectic Galerkin ROM on the CL basis. Computes reconstruction errors against test snapshots.
 
 ```bash
-python test_wave_CL_galerkin.py [--p_red 4 8 12 16] [--mu_val 0.6] [--rb_size 50] [--visualize] [--save_data]
-```
-
-### `test_wave_pymor_pod.py` — POD + Galerkin (pyMOR)
-Uses pyMOR's `InstationaryRBReductor` to build and solve a standard Galerkin ROM on the POD basis.
-
-```bash
-python test_wave_pymor_pod.py [--p_red 4 8 12 16] [--mu_val 0.6] [--rb_size 50] [--visualize] [--save_data]
+python test_wave_CL_galerkin.py --p_red 4 8 12 16 --mu_val 0.6 --rb_size 50 --visualize --save_data
 ```
 
 ### `test_wave_deep_galerkin.py` — Autoencoder + Deep Galerkin
 Runs the Deep Galerkin ROM: the autoencoder defines the nonlinear reduced manifold, and the implicit midpoint rule is solved via quasi-Newton iteration with Galerkin projection.
 
 ```bash
-python test_wave_deep_galerkin.py --ae_name RotationUpsamplingGCNN_C8 [--p_red 8] [--mu_val 0.8] [--symplectic] [--visualize]
+python test_wave_deep_galerkin.py --ae_name RotationUpsamplingGCNN_C8 --p_red 8 --mu_val 0.8 --visualize
 ```
 
 ### `test_wave_deep_lspg.py` — Autoencoder + Deep LSPG
 Same as Deep Galerkin but uses LSPG projection (minimizes the full-order residual) instead of Galerkin projection. Generally more robust but more expensive per timestep.
 
 ```bash
-python test_wave_deep_lspg.py --ae_name RotationUpsamplingGCNN_C8 [--p_red 8] [--mu_val 0.8] [--visualize] [--save_data]
+python test_wave_deep_lspg.py --ae_name RotationUpsamplingGCNN_C8 --p_red 8 --mu_val 0.8 --visualize --save_data
+```
+
+### `test_wave_pod_galerkin.py` — POD + Galerkin (uses pyMOR reductor)
+Uses pyMOR's `InstationaryRBReductor` to build and solve a standard Galerkin ROM on the POD basis.
+
+```bash
+python test_wave_pymor_pod.py --p_red 4 8 12 16 --mu_val 0.8 --rb_size 50 --visualize --save_data
 ```
 
 ---
