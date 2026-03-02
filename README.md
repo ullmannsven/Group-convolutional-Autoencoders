@@ -68,6 +68,7 @@ Defines all autoencoder architectures used in the project. The key variants are:
 | `RotationUpsamplingGCNNAutoencoder2D` | Group-equivariant autoencoder with C4 or C8 rotational symmetry, using ESCNN. The encoder uses group convolutions; the decoder uses upsampling transposed convolutions. |
 | `UpsamplingCNNAutoencoder2D` | Standard (non-equivariant) CNN autoencoder baseline with the same upsampling decoder architecture. |
 | `TrivialUpsamplingGCNNAutoencoder2D` | GCNN autoencoder with trivial (scalar) representations — equivariant in structure but without non-trivial group action on features. |
+| `RotationUpsamplingGCNN2D_TorchOnly` | GCNN autoencoder for H=C_4, implemented using pyTorch and thus implementing group convolutions "by hand" instead of using escnn. |
 
 All autoencoders share the same encode/decode interface and are selected via the `AE_REGISTRY` in the test scripts.
 
@@ -103,7 +104,7 @@ Checkpoints of the selected autoencoders for different AE setups and reduced bas
 
 ### `tests/90wave/CL_results/` 
 
-Results when using CL as projection method as well as CL-SG. Contains projections error, reduction errors as well as the computed RB using CL (once centered and once uncentered). 
+Results when using CL as projection method as well as CL-SG as reduction method. Contains projections error, reduction errors as well as the computed RB using CL (once centered and once uncentered). 
 
 ### `tests/90wave/mor_results/` 
 
@@ -114,14 +115,14 @@ Contains the network parameters that corresponds to the checkpoints in `tests/90
 
 ### `tests/90wave/pod_results/` 
 
-Results regarding experiments when using POD 
+Results regarding experiments when using POD as projection method as well as POD-G as reduction method. Contains projections error, reduction errors as well as the computed RB using CL (once centered and once uncentered).
 
 ### `tests/90wave/scaling/` 
 Contains `scale.py`, which performs scaling (and inverse scaling) and the reshaping (and prolongation).
 
 ### `tests/90wave/snapshots_grid/`
 
-Contains the FOM solution snapshots for the employed training and test data. 
+Currently empty as the FOM solutions are too large to store on github. Then FOM solutions can be obtained using `wave_create_snapshots`. 
 
 
 ## Basis Computation
@@ -192,7 +193,7 @@ These scripts run a full reduced-order model time integration and compare agains
 Uses pyMOR's `QuadraticHamiltonianRBReductor` to build and solve a symplectic Galerkin ROM on the CL basis. Computes reconstruction errors against test snapshots.
 
 ```bash
-python test_wave_CL_galerkin.py --p_red 4 8 12 16 --mu_val 0.6 --rb_size 50 --visualize --save_data
+python test_wave_cl_sg.py --p_red 4 8 12 16 --mu_val 0.6 --rb_size 50 --visualize --save_data
 ```
 
 ### `test_wave_deep_galerkin.py` — Autoencoder + Deep Galerkin
@@ -213,7 +214,7 @@ python test_wave_deep_lspg.py --ae_name RotationUpsamplingGCNN_C8 --p_red 8 --mu
 Uses pyMOR's `InstationaryRBReductor` to build and solve a standard Galerkin ROM on the POD basis.
 
 ```bash
-python test_wave_pymor_pod.py --p_red 4 8 12 16 --mu_val 0.8 --rb_size 50 --visualize --save_data
+python test_wave_pod_galerkin.py --p_red 4 8 12 16 --mu_val 0.8 --rb_size 50 --visualize --save_data
 ```
 
 ---

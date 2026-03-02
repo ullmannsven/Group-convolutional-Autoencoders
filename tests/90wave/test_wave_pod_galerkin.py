@@ -3,7 +3,7 @@
 Test POD Galerkin ROM for the wave equation experiment.
 
 Usage:
-    python test_wave_pymor_pod.py [--mu_val MU] [--p_red P [P ...]]
+    python test_wave_pod_galerkin.py [--mu_val MU] [--p_red P [P ...]]
                                   [--rb_size N] [--visualize] [--save_data]
 
 Arguments:
@@ -11,17 +11,17 @@ Arguments:
     --p_red     One or more reduced dimensions to evaluate (default: 4 8 12 16)
     --rb_size   Size of the reduced basis to load (default: 50)
     --visualize Enable visualization of ROM solutions (default: False)
-    --save_data Save reconstruction errors to a CSV file (default: False)
+    --save_data Save reduction errors to a CSV file (default: False)
 
 Examples:
     # Default settings
-    python test_wave_pymor_pod.py
+    python test_wave_pod_galerkin.py
 
     # Custom mu and p_red, save results
-    python test_wave_pymor_pod.py --mu_val 0.8 --p_red 4 8 16 --save_data
+    python test_wave_pod_galerkin.py --mu_val 0.8 --p_red 4 8 16 --save_data
 
     # With visualization
-    python test_wave_pymor_pod.py --visualize
+    python test_wave_pod_galerkin.py --visualize
 """
 
 import argparse
@@ -38,7 +38,7 @@ from pymor.vectorarrays.block import BlockVectorSpace
 from experiment_setup import WaveExperimentConfig, WaveExperiment
 
 
-def test_wave_pymor_pod(mu_val=0.6, p_red_values=[4, 8, 12, 16], rb_size=50, visualize=False, save_data=False):
+def test_wave_pod_galerkin(mu_val=0.6, p_red_values=[4, 8, 12, 16], rb_size=50, visualize=False, save_data=False):
 
     config = WaveExperimentConfig(nt=500, timestep_factor=1, visualize_q=visualize)
     experiment = WaveExperiment(config)
@@ -63,7 +63,7 @@ def test_wave_pymor_pod(mu_val=0.6, p_red_values=[4, 8, 12, 16], rb_size=50, vis
     initial_state = experiment.get_initial_state(mu_val=mu_val)
     u_test = u_test + initial_state
 
-    reconstruction_errors = []
+    reduction_errors = []
 
     for p_red in p_red_values:
         reduced_basis = reduced_basis_all[:, :p_red]
@@ -95,16 +95,16 @@ def test_wave_pymor_pod(mu_val=0.6, p_red_values=[4, 8, 12, 16], rb_size=50, vis
         error_den_p = np.sqrt(np.sum(np.linalg.norm(u_test[Nx*Ny:, :steps]) ** 2))
 
         print(f"p_red={p_red}: error={error/error_den:.4e}, error_q={error_q/error_den_q:.4e}, error_p={error_p/error_den_p:.4e}")
-        reconstruction_errors.append((p_red, error / error_den))
+        reduction_errors.append((p_red, error / error_den))
 
-    print(reconstruction_errors)
+    print(reduction_errors)
 
     if save_data:
-        out_file = filepaths['pod_results'] / f"reconstruction_error_pymor_pod_mu{mu_val}.csv"
+        out_file = filepaths['pod_results'] / f"reduction_error_pod_galerkin_mu{mu_val}.csv"
         with open(out_file, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["x", "y"])
-            writer.writerows(reconstruction_errors)
+            writer.writerows(reduction_errors)
         print(f"Saved CSV to: {out_file}")
 
 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     parser.add_argument('--p_red', type=int, nargs='+', default=[4, 8, 12, 16], metavar='P', help='Reduced dimension(s) to evaluate (default: 4 8 12 16)')
     parser.add_argument('--rb_size', type=int, default=50, help='Size of the reduced basis to load (default: 50)')
     parser.add_argument('--visualize', action='store_true', default=False, help='Enable visualization of ROM solutions (default: False)')
-    parser.add_argument('--save_data', action='store_true', default=False, help='Save reconstruction errors to a CSV file (default: False)')
+    parser.add_argument('--save_data', action='store_true', default=False, help='Save reduction errors to a CSV file (default: False)')
 
     args = parser.parse_args()
-    test_wave_pymor_pod(mu_val=args.mu_val, p_red_values=args.p_red, rb_size=args.rb_size, visualize=args.visualize, save_data=args.save_data)
+    test_wave_pod_galerkin(mu_val=args.mu_val, p_red_values=args.p_red, rb_size=args.rb_size, visualize=args.visualize, save_data=args.save_data)
