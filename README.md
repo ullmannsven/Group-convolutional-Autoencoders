@@ -1,8 +1,8 @@
 # Model order reduction using group convolutional autoencoders
 
-This repository implements group-equivariant convolutional autoencoders combined with structure-preserving model order reduction (MOR) techniques for parametric dynamical systems. The primary application is the 2D wave equation, where rotational symmetry (C4/C8 equivariance) is exploited to improve generalization across different flow directions.
+This repository contains the numerical examples of my Master thesis 'Model order reduction using group convolutional autoencoders` and implements group-equivariant convolutional autoencoders combined with structure-preserving model order reduction (MOR) techniques for parametric dynamical systems. The primary application is the 2D wave equation, where rotational symmetry (C4/C8 equivariance) is exploited to improve generalization across different flow directions.
 
-The core idea is to train a neural network autoencoder on waves propagating in one direction and generalize — via group equivariance — to perpendicular directions without retraining.
+The core idea is to train a neural network autoencoder on waves propagating in one direction and generalize to perpendicular directions without retraining.
 
 ---
 
@@ -220,6 +220,9 @@ python test_wave_pymor_pod.py --p_red 4 8 12 16 --mu_val 0.8 --rb_size 50 --visu
 ## Experiment for diagonal moving wave (`tests/45wave/`)
 
 Structured in a similar fashion as the `tests/90wave`, therefore no additional detailed description is required here. 
+
+
+--- 
 
 ## Autoencoder Registry
 
