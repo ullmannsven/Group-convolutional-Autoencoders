@@ -39,6 +39,8 @@ mor_results/
 GCNN_tests/
 new_wave/
 pdes/
+test_wave_CL_galerkin.py
+test_wave_pod_galerkin.py
 *.pt
 *.pth
 *.ckpt
