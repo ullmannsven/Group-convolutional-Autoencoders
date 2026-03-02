@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Test 2D wave equation with Deep-Galerkin method.
+Test 2D wave equation with manifold-Galerkin method.
 
 Usage:
-    python test_wave_deep_galerkin.py --ae_name AE_NAME [--mu_val MU]
+    python test_wave_manifold_galerkin.py --ae_name AE_NAME [--mu_val MU]
                                       [--p_red N] [--scaled_data]
                                       [--symplectic] [--visualize]
 
@@ -28,13 +28,13 @@ Checkpoint naming convention:
 
 Examples:
     # C8 network, default settings
-    python test_wave_deep_galerkin.py --ae_name RotationUpsamplingGCNN_C8
+    python test_wave_manifold_galerkin.py --ae_name RotationUpsamplingGCNN_C8
 
     # CNN baseline, different mu
-    python test_wave_deep_galerkin.py --ae_name UpsamplingCNN --mu_val 0.6 --p_red 12
+    python test_wave_manifold_galerkin.py --ae_name UpsamplingCNN --mu_val 0.6 --p_red 12
 
     # With symplectic integration and visualization
-    python test_wave_deep_galerkin.py --ae_name RotationUpsamplingGCNN_C4 --symplectic --visualize
+    python test_wave_manifold_galerkin.py --ae_name RotationUpsamplingGCNN_C4 --symplectic --visualize
 """
 
 import argparse
@@ -55,7 +55,7 @@ from equiv_networks.autoencoders import (
     TrivialUpsamplingGCNNAutoencoder2D,
 )
 from equiv_networks.models.nonlinear_manifolds import NonlinearManifoldsMOR2D
-from equiv_networks.models.deep_galerkin_utilities_IMR import Galerkin_quasi_newton
+from equiv_networks.models.manifold_galerkin_utilities_IMR import Galerkin_quasi_newton
 from scaling.scale import Scaler
 from experiment_setup import WaveExperiment, WaveExperimentConfig
 
@@ -80,8 +80,8 @@ AE_REGISTRY = {
 }
 
 
-def test_wave_deep_galerkin(ae_name, mu_val=0.8, p_red=8, scaled_data=True, symplectic=False, visualize=False, save_data=False):
-    """Test 2D wave equation with Deep-Galerkin method."""
+def test_wave_manifold_galerkin(ae_name, mu_val=0.8, p_red=8, scaled_data=True, symplectic=False, visualize=False, save_data=False):
+    """Test 2D wave equation with manifold-Galerkin method."""
 
     if ae_name not in AE_REGISTRY:
         raise ValueError(f"Unknown ae_name '{ae_name}'. Choose from: {list(AE_REGISTRY.keys())}")
@@ -184,7 +184,7 @@ def test_wave_deep_galerkin(ae_name, mu_val=0.8, p_red=8, scaled_data=True, symp
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Test 2D wave equation with Deep-Galerkin method.',
+        description='Test 2D wave equation with manifold-Galerkin method.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -197,4 +197,4 @@ if __name__ == '__main__':
     parser.add_argument('--save_data', action='store_true', default=False, help='Save data to CSV file')
 
     args = parser.parse_args()
-    test_wave_deep_galerkin(ae_name=args.ae_name, mu_val=args.mu_val, p_red=args.p_red, scaled_data=args.scaled_data, symplectic=args.symplectic, visualize=args.visualize, save_data=args.save_data)
+    test_wave_manifold_galerkin(ae_name=args.ae_name, mu_val=args.mu_val, p_red=args.p_red, scaled_data=args.scaled_data, symplectic=args.symplectic, visualize=args.visualize, save_data=args.save_data)

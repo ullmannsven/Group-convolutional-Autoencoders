@@ -14,11 +14,11 @@ The core idea is to train a neural network autoencoder on waves propagating in o
 │   ├── autoencoders.py              # Autoencoder architecture definitions
 |   ├── early_stopping.py            # Early stopping procedure via checkpointing
 |   ├── trainer.py                   # Training prodedure of the autoencoders
-│   ├── models/
-│       ├── deep_galerkin_utilities_IMR.py  # Deep Galerkin quasi-Newton solver
-│       ├── deep_lspg_utilities_IMR.py      # Deep LSPG quasi-Newton solver
-|       ├── general_utilities.py            # Helpers that are employed in all files in the folder
-|       └── nonlinear_manifolds.py          # MOR wrapper around the autoencoder
+│   └── models/
+|       ├── general_utilities.py                # Helpers that are employed in all files in the folder
+│       ├── manifold_galerkin_utilities_IMR.py  # manifold Galerkin quasi-Newton solver
+│       ├── manifold_lspg_utilities_IMR.py      # manifold LSPG quasi-Newton solver
+|       └── nonlinear_manifolds.py              # MOR wrapper around the autoencoder
 ├── tests/                          
 |    ├── 45wave/
 |       ├── checkpoints/
@@ -30,7 +30,7 @@ The core idea is to train a neural network autoencoder on waves propagating in o
 |       ├── proj_error_AE.py
 |       ├── train_wave.py
         └── wave_create_snapshots.py
-|    ├── 90wave/ 
+|    └─── 90wave/ 
 |       ├── AE_results/
 |       ├── checkpoints/
 |       ├── CL_results/
@@ -47,8 +47,8 @@ The core idea is to train a neural network autoencoder on waves propagating in o
 |       ├── proj_error_cl.py             # Projection error: Cotangent Lift
 |       ├── proj_error_pod.py            # Projection error: POD
 │       ├── test_wave_cl_sg.py           # ROM test: CL + Galerkin projection
-│       ├── test_wave_deep_galerkin.py   # ROM test: AE + Deep Galerkin
-│       ├── test_wave_deep_lspg.py       # ROM test: AE + Deep LSPG
+│       ├── test_wave_manifold_galerkin.py   # ROM test: AE + manifold Galerkin
+│       ├── test_wave_manifold_lspg.py       # ROM test: AE + manifold LSPG
 │       ├── test_wave_pod_galerkin.py    # ROM test: POD + Galerkin projection
 │       ├── train_wave.py                # Autoencoder training
 |       └── wave_create_snapshots        # Compute FOM solutions
@@ -76,11 +76,11 @@ Early stopping procedure, that checkpoints the best trained model via computing 
 ### `trainer.py`
 Contains the complete training routine for a neural network, in this case employed only for autoencoders. Different loss functions, including the MSE, a weighted MSE, a physical aware MSE and the symplectic loss term are included here. 
 
-### `models/deep_galerkin_utilities_IMR`
-Implements the **Deep Galerkin** time integration: a quasi-Newton solver (`Galerkin_quasi_newton`) for implicit midpoint rule (IMR) timestepping on the reduced nonlinear manifold. The residual is formulated via Galerkin projection of the FOM onto the reduced manifold via the trained autoencoder
+### `models/manifold_galerkin_utilities_IMR`
+Implements the **manifold Galerkin** time integration: a quasi-Newton solver (`Galerkin_quasi_newton`) for implicit midpoint rule (IMR) timestepping on the reduced nonlinear manifold. The residual is formulated via Galerkin projection of the FOM onto the reduced manifold via the trained autoencoder
 
-### `models/deep_lspg_utilities_IMR.py`
-Implements the **Deep LSPG** (Least-Squares Petrov-Galerkin) time integration: a quasi-Newton solver (`LSPG_quasi_newton`) for IMR timestepping. Differs from Galerkin in the test space used for projection — LSPG minimizes the full-order residual in a least-squares sense.
+### `models/manifold_lspg_utilities_IMR.py`
+Implements the **manifold LSPG** (Least-Squares Petrov-Galerkin) time integration: a quasi-Newton solver (`LSPG_quasi_newton`) for IMR timestepping. Differs from Galerkin in the test space used for projection — LSPG minimizes the full-order residual in a least-squares sense.
 
 ### `models/general_utlities.py`
 Implements general helpers, including a `apply_decoder` (applies the decoder and the respective unscaling and prolongation operator) and a `get_jacobian`, which computes the jacobian of the AE-decoder via pyTorches `jacfwd` method. 
@@ -194,18 +194,18 @@ Uses pyMOR's `QuadraticHamiltonianRBReductor` to build and solve a symplectic Ga
 python test_wave_cl_sg.py --p_red 4 8 12 16 --mu_val 0.6 --rb_size 50 --visualize --save_data
 ```
 
-### `test_wave_deep_galerkin.py` — Autoencoder + Deep Galerkin
-Runs the Deep Galerkin ROM: the autoencoder defines the nonlinear reduced manifold, and the implicit midpoint rule is solved via quasi-Newton iteration with Galerkin projection.
+### `test_wave_manifold_galerkin.py` — Autoencoder + manifold Galerkin
+Runs the manifold Galerkin ROM: the autoencoder defines the nonlinear reduced manifold, and the implicit midpoint rule is solved via quasi-Newton iteration with Galerkin projection.
 
 ```bash
-python test_wave_deep_galerkin.py --ae_name RotationUpsamplingGCNN_C8 --p_red 8 --mu_val 0.8 --visualize
+python test_wave_manifold_galerkin.py --ae_name RotationUpsamplingGCNN_C8 --p_red 8 --mu_val 0.8 --visualize
 ```
 
-### `test_wave_deep_lspg.py` — Autoencoder + Deep LSPG
-Same as Deep Galerkin but uses LSPG projection (minimizes the full-order residual) instead of Galerkin projection. Generally more robust but more expensive per timestep.
+### `test_wave_manifold_lspg.py` — Autoencoder + manifold LSPG
+Same as manifold Galerkin but uses LSPG projection (minimizes the full-order residual) instead of Galerkin projection. Generally more robust but more expensive per timestep.
 
 ```bash
-python test_wave_deep_lspg.py --ae_name RotationUpsamplingGCNN_C8 --p_red 8 --mu_val 0.8 --visualize --save_data
+python test_wave_manifold_lspg.py --ae_name RotationUpsamplingGCNN_C8 --p_red 8 --mu_val 0.8 --visualize --save_data
 ```
 
 ### `test_wave_pod_galerkin.py` — POD + Galerkin (uses pyMOR reductor)
