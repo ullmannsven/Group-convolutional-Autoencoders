@@ -29,7 +29,6 @@ The core idea is to train a neural network autoencoder on waves propagating in o
 |       ├── experiment_setup.py 
 |       ├── proj_error_AE.py
 |       ├── train_wave.py
-|       ├── visualize_snapshot.py
         ├──wave_create_snapshots.py
 |    ├── 90wave/ 
 |       ├── AE_results/
@@ -52,7 +51,6 @@ The core idea is to train a neural network autoencoder on waves propagating in o
 │       ├── test_wave_deep_lspg.py       # ROM test: AE + Deep LSPG
 │       ├── test_wave_pod_galerkin.py    # ROM test: POD + Galerkin projection
 │       ├── train_wave.py                # Autoencoder training
-|       ├── visualize_snapshot.py        # Visualization routine
 |       ├── wave_create_snapshots        # Compute FOM solutions
 ```
 
@@ -216,6 +214,16 @@ Uses pyMOR's `InstationaryRBReductor` to build and solve a standard Galerkin ROM
 ```bash
 python test_wave_pod_galerkin.py --p_red 4 8 12 16 --mu_val 0.8 --rb_size 50 --visualize --save_data
 ```
+
+## Training 
+
+Two files are required to perform training: 
+
+### `train_wave.py` 
+Sets all network hyperparameters and trains the autoencoders.
+
+### `wave_create_snapshots` 
+Before training, training data needs to be generated. This script generates the training (and also the test) data. Run this once before starting training. 
 
 ---
 
