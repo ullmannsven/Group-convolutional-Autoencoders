@@ -2,14 +2,13 @@
 
 import pickle
 import os
-import time 
 
 from experiment_setup import WaveExperiment, WaveExperimentConfig
 
 def create_snapshots(): 
     config = WaveExperimentConfig(x_flow=True, nt=500, timestep_factor=1)
     experiment = WaveExperiment(config)
-    train_params = [2]
+    train_params = [0.5, 0.6, 0.75, 0.8, 1.0]
 
     data_tmp = []
     
@@ -32,6 +31,4 @@ def create_snapshots():
         data_tmp = []
 
 if __name__ == '__main__':
-    tic = time.time()
     create_snapshots()
-    print(time.time() - tic)

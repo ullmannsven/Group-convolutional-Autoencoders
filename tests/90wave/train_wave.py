@@ -12,7 +12,7 @@ import torch.optim as optim
 from escnn import gspaces
 
 from equiv_networks.autoencoders import RotationUpsamplingGCNNAutoencoder2D, UpsamplingCNNAutoencoder2D, TrivialUpsamplingGCNNAutoencoder2D, RotationUpsamplingGCNN2D_TorchOnly
-from equiv_networks.models.instationary.nonlinear_manifolds import NonlinearManifoldsMOR2D
+from equiv_networks.models.nonlinear_manifolds import NonlinearManifoldsMOR2D
 from equiv_networks.early_stopping import SimpleEarlyStoppingScheduler
 from scaling.scale import Scaler
 from experiment_setup import WaveExperimentConfig
@@ -20,7 +20,7 @@ from experiment_setup import WaveExperimentConfig
 def train_wave_2D():
     config = WaveExperimentConfig(x_flow=True, nt=500, visualize_q=True)
     p_red = 12
-    both_directions = True
+    both_directions = False
 
     Nx = config.Nx
     Ny = config.Ny
