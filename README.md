@@ -1,6 +1,6 @@
 # Model order reduction using group convolutional autoencoders
 
-This repository contains the numerical examples of my Master thesis 'Model order reduction using group convolutional autoencoders` and implements group-equivariant convolutional autoencoders combined with structure-preserving model order reduction (MOR) techniques for parametric dynamical systems. The primary application is the 2D wave equation, where rotational symmetry (C4/C8 equivariance) is exploited to improve generalization across different flow directions.
+This repository contains the numerical examples of my Master thesis **Model order reduction using group convolutional autoencoders** and implements group-equivariant convolutional autoencoders combined with structure-preserving model order reduction (MOR) techniques for parametric dynamical systems. The primary application is the 2D wave equation, where rotational symmetry (C4/C8 equivariance) is exploited to improve generalization across different flow directions.
 
 The core idea is to train a neural network autoencoder on waves propagating in one direction and generalize to perpendicular directions without retraining.
 
@@ -87,7 +87,7 @@ Implements the **Deep LSPG** (Least-Squares Petrov-Galerkin) time integration: a
 Implements general helpers, including a `apply_decoder` (applies the decoder and the respective unscaling and prolongation operator) and a `get_jacobian`, which computes the jacobian of the AE-decoder via pyTorches `jacfwd` method. 
 
 ### `models/nonlinear_manifolds.py`
-Wraps an autoencoder into a full MOR model (`NonlinearManifoldsMOR2D`). Handles loading/saving of network weights, interfacing with pyMOR's full-order model (FOM), and managing the encode/decode pipeline together with data scaling.
+Wraps an autoencoder into a full MOR model (`NonlinearManifoldsMOR2D`). Handles loading/saving of network weights and interfacing with the FOM. 
 
 ---
 
@@ -109,7 +109,8 @@ Results when using CL.
 
 Results when using different autoencoder variants. 
 
-### `tests/90wave/network_parameters/` 
+### `tests/90wave/network_parameters/`
+Contains the network parameters that corresponds to the checkpoints in `tests/90wave/checkpoints`. 
 
 ### `tests/90wave/pod_results/` 
 
@@ -125,20 +126,20 @@ Contains the FOM solution snapshots for the employed training and test data.
 
 ## Basis Computation
 
-These scripts precompute reduced bases from training snapshots and save them to disk. They are run once before any ROM tests.
+These scripts precompute reduced bases from training snapshots. We ran them once before any ROM tests.
 
 ### `compute_cl_basis.py` — Cotangent Lift Basis
 Loads training snapshots for `mu ∈ {0.5, 0.75, 1.0}`, assembles a phase-space snapshot matrix, and computes a symplectic reduced basis using pyMOR's `psd_cotangent_lift`. Saves the basis as a pickle file.
 
 ```bash
-python compute_cl_basis.py [--max_modes 50] [--centered]
+python compute_cl_basis.py --max_modes 50 --centered
 ```
 
 ### `compute_pod_basis.py` — POD Basis
 Loads the same training snapshots and computes a standard POD basis using pyMOR's `pod` function. Saves the basis as a `.npy` file.
 
 ```bash
-python compute_pod_basis.py [--modes 50] [--centered]
+python compute_pod_basis.py --modes 50 --centered
 ```
 
 ---
