@@ -1,12 +1,8 @@
 #!/usr/bin/env python
 
-import os
-import numpy as np
-
 import torch
 import torch.utils as utils
 import torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter
 
 class ProgressTraining:
 
@@ -47,6 +43,8 @@ class Trainer:
         Initial default learning rate for the optimizer.
     lr_scheduler
         Learning rate scheduler to use.
+    parameters_lr_scheduler
+        Additional parameters for the learning rate scheduler.
     use_validation
         Determines whether or not to perform a validation phase.
     es_scheduler
@@ -55,7 +53,16 @@ class Trainer:
         Additional parameters for the early stopping scheduler.
     device
         Device on which the training in performed. Either "cpu" or "cuda".
-        #TODO hier fehlen noch einige input arguments
+    loss_mode
+        Determines the loss function to use for training. If "physical", the loss is computed in physical units (i.e. after unscaling the outputs and targets). 
+        If "weights", a weighted MSE loss is used, where the weights are computed as the inverse of the variance of each channel in the targets. 
+        If "symplectic", the loss is a weighted sum of the data loss (computed in physical units) and a symplectic loss that penalizes deviations from 
+        the symplectic condition on the Jacobian of the decoder.
+        If None, the loss function defined in the model is used without modification.
+    targets_are_normalized
+        Only relevant if loss_mode == "physical". Determines whether or not the targets are normalized (i.e. need to be unscaled) before computing the loss in physical units.
+    loss_symplectic_fraction
+        Only relevant if loss_mode == "symplectic". Determines the fraction of the data loss in the overall loss (the rest is the symplectic loss).
     """
     def __init__(self, model, optimizer=None, parameters_optimizer={}, learning_rate=None,
                  lr_scheduler=None, parameters_lr_scheduler=None, use_validation=True,
@@ -91,11 +98,31 @@ class Trainer:
             assert loss_symplectic_fraction
             self.loss_symplectic_fraction = loss_symplectic_fraction
 
+    def prepare_batch(self, batch):
+        """Prepare the data for usage in training procedure
+
+        Parameters
+        ----------
+        batch
+            Batch to convert.
+
+        Returns
+        -------
+            Dictionary with input and target tensors.
+        """
+
+        inputs = [b['u_full_step_shifted'] for b in batch]
+        if not isinstance(inputs[0], torch.Tensor):
+            inputs = [torch.as_tensor(x) for x in inputs]
+
+        inputs = torch.stack(inputs, dim=0)
+
+        return {'inputs': inputs, 'targets': inputs}
+
 
     def train(self, training_data=None, training_loader=None,
               number_of_epochs=1000, batch_size=20, learning_rate=None, 
-              validation_data=None, validation_loader=None, show_progress_bar=True,
-              log_filename=None, nn_save_filepath=None, log_frequency=10):
+              validation_data=None, validation_loader=None, show_progress_bar=True, nn_save_filepath=None):
         """Sets up everything and call function to start training procedure.
 
         Parameters
@@ -120,19 +147,13 @@ class Trainer:
             the (random) mini-batching of the validation data.
         show_progress_bar
             Determines whether or not to show a progress bar during training.
-        log_filename
-            Filename for the logging file.
         nn_save_filepath
             Filepath where to save the biases and weigths of the trained NN.
-        log_frequency
-            Number of epochs to wait before updating the logging file.
-
+       
         Returns
         -------
-        Minimum validation and training loss (if early stopping
-        scheduler is used).
+        Minimum validation and training loss (if early stopping scheduler is used).
         """
-        # set learning rate for each parameter group in the optimizer to the given initial value
         if learning_rate is not None:
             for group in self.optimizer.param_groups:
                 group['lr'] = learning_rate
@@ -152,46 +173,33 @@ class Trainer:
             training_sampler = utils.data.RandomSampler(training_data)
             training_loader = utils.data.DataLoader(training_data,
                                                     batch_size=batch_size,
-                                                    collate_fn=lambda batch: self.model.prepare_batch(batch),
+                                                    collate_fn=lambda batch: self.prepare_batch(batch),
                                                     sampler=training_sampler, 
                                                     pin_memory=(self.device.type == "cuda"), 
                                                     num_workers=workers, 
                                                     persistent_workers=use_workers)
 
        
-        # define validation loader if necessary
         if self.use_validation and not validation_loader:
             validation_sampler = None
             validation_loader = utils.data.DataLoader(validation_data, 
                                                       batch_size=batch_size,
-                                                      collate_fn=lambda batch: self.model.prepare_batch(batch),
+                                                      collate_fn=lambda batch: self.prepare_batch(batch),
                                                       sampler=validation_sampler, 
                                                       pin_memory=(self.device.type == "cuda"), 
                                                       num_workers=workers,
                                                       persistent_workers=use_workers)
 
-        # train the neural network
         return self.train_network(training_loader, 
                                   number_of_epochs=number_of_epochs,
                                   learning_rate=learning_rate,
                                   validation_loader=validation_loader,
-                                  show_progress_bar=show_progress_bar, 
-                                  log_filename=log_filename,
-                                  nn_save_filepath=nn_save_filepath,
-                                  log_frequency=log_frequency)
+                                  show_progress_bar=show_progress_bar,
+                                  nn_save_filepath=nn_save_filepath)
+    
     
 
-    def _compute_loss(self, outputs, targets, encoded_inputs=None):
-        """
-        Compute loss according to self.loss_mode.
-        Assumptions:
-            - outputs, targets: shape [B, C, ...]
-            - If loss_mode == "physical":
-                - self.scaler.denorm(tensor) available
-                - targets_are_normalized tells whether to denorm targets
-            - If loss_mode == "weighted":
-                - self.registered_channel_weights is a 1D tensor of length C
-        """
+    def _compute_loss(self, outputs, targets, inputs, encoded_inputs=None):
         if self.loss_mode == "physical":
             y_phys = self.model.scaler.unscale(outputs)
             if self.targets_are_normalized:
@@ -206,47 +214,70 @@ class Trainer:
             w = 2.0 * w / w.sum()
             return self.weighted_mse(outputs, targets, w)
         
-        #TODO this is outdated and done more efficient on the server
         elif self.loss_mode == "symplectic":
-            data_loss = self.model.loss_function(outputs, targets)
-            sum_part = 0.0
-            for i in range(encoded_inputs.shape[0]):
-                jac = self.get_jacobian(self.model.network.decoder, encoded_inputs[i, :]).detach().numpy()
-                sum_part += np.linalg.norm(jac.T @ self.symplectic_poisson_tensor(10201) @ jac - self.symplectic_poisson_tensor(60))**2
-
-            symplectic_loss = sum_part / (encoded_inputs.shape[1]**2 * outputs.shape[0]) #outputs.shape[0] is the batchsize, encoded_inputs.shape[1] is the reduced dimension
-
+            data_loss = self.model.loss_function(outputs, inputs)
+            symplectic_loss = self.symplectic_loss_chunked(self.model.network.decoder, encoded_inputs)
+           
             return self.loss_symplectic_fraction * data_loss + (1 - self.loss_symplectic_fraction) * symplectic_loss
         
         else: 
             return self.model.loss_function(outputs, targets)
-    
         
-    def symplectic_poisson_tensor(self, n, dtype=float):
-        """
-        Return the canonical (constant) Poisson tensor J for R^{2n} with coords (q,p):
-            J = [[0,  I_n],
-                [-I_n, 0]]
-        """
-        I = np.eye(n, dtype=dtype)
-        Z = np.zeros((n, n), dtype=dtype)
-        J = np.block([[Z,  I], [-I, Z]])
-        return J
-        
-    def get_jacobian(self, function, x):
-        x = x.reshape(1,-1)
-        x.requires_grad_(True)
-
-        def f_latent(x):
-            y = function(x)
-            return y.reshape(-1)
-
-        # Compute Jacobian d f / d x at x
-        J = torch.func.jacfwd(f_latent)(x)
-        dims = (2, 101, 101)
-
-        return self.model.scaler.unscale_and_prolongate_derivative(J, dims)
+    def symplectic_loss_chunked(self, decoder, encoded_inputs, chunk_size=5):
+        losses = []
+        for chunk in encoded_inputs.split(chunk_size):
+            losses.append(self.symplectic_loss_optimized(decoder, chunk))
+        return torch.stack(losses).mean()
     
+
+    def symplectic_loss_optimized(self, decoder, encoded_inputs):
+        B, r = encoded_inputs.shape
+        device, dtype = encoded_inputs.device, encoded_inputs.dtype
+            
+        # Use reverse-mode AD (better for many outputs, few inputs)
+        J_single = torch.func.jacfwd(lambda z: self.decoder_flat(decoder, z))
+        J_batch = torch.vmap(J_single)(encoded_inputs)  # (B, 2N, r)
+        J = torch.vmap(lambda J_b: self.model.scaler.unscale_and_prolongate_derivative(J_b))(J_batch)
+      
+	    # Compute O @ J efficiently without materializing O
+        # For J: (B, 2N, r), split into top/bottom halves
+        N =  J.shape[1] // 2
+        J_top = J[:, :N, :]   # q components
+        J_bot = J[:, N:, :]   # p components
+    
+        # O @ J = [J_bot; -J_top] (exploit block structure)
+        OmegaJ = torch.cat([J_bot, -J_top], dim=1)  # (B, 2N, r)
+    
+        # Compute S = J^T @ (O @ J) via batched matmul
+        S = torch.bmm(J.transpose(1, 2), OmegaJ)  # (B, r, r)
+    
+        # Create canonical Poisson tensor O_ri
+        n = r // 2
+        Om_r = torch.zeros((r, r), device=device, dtype=dtype)
+        Om_r[:n, n:] = torch.eye(n, device=device, dtype=dtype)
+        Om_r[n:, :n] = -torch.eye(n, device=device, dtype=dtype)
+    
+        # Compute loss
+        diff = S - Om_r.unsqueeze(0)  # (B, r, r)
+        loss = (diff.pow(2).sum(dim=(-2, -1)) / (r * r)).mean()
+    
+        return loss
+    
+
+    def decoder_flat(self, decoder, z):
+        squeeze_back = False
+        if z.dim() == 1:
+            z = z.unsqueeze(0)
+            squeeze_back = True
+
+        y = decoder(z) 
+        y = y.flatten(start_dim=1)
+
+        if squeeze_back: 
+            y = y.squeeze(0)
+        return y
+
+
     def weighted_mse(self, pred_phys, target_phys, w):
         """
         pred_phys, target_phys: (B, C, H, W) in physical units
@@ -258,8 +289,7 @@ class Trainer:
     
 
     def train_network(self, training_loader, number_of_epochs=1000,
-                      learning_rate=None, validation_loader=None, show_progress_bar=True,
-                      log_filename=None, nn_save_filepath=None, log_frequency=10):
+                      learning_rate=None, validation_loader=None, show_progress_bar=True, nn_save_filepath=None):
         """Performs actual training of the neural network.
 
         Parameters
@@ -277,31 +307,20 @@ class Trainer:
             the (random) mini-batching of the validation data.
         show_progress_bar
             Determines whether or not to show a progress bar during training.
-        log_filename
-            Filename for the logging file.
         nn_save_filepath
             Filepath where to save the biases and weigths of the trained NN.
-        log_frequency
-            Number of epochs to wait before updating the logging file.
-
+       
         Returns
         -------
         Minimum validation and training loss (if early stopping
         scheduler is used).
         """
-        if log_filename:
-            os.makedirs(os.path.dirname(log_filename), exist_ok=True)
-            writer = SummaryWriter(log_dir=f'{log_filename}')
-            print('To see training progress on tensorboard, run:')
-            print(f'tensorboard --logdir={os.path.dirname(log_filename)}')
-            print()
-
+        
         number_of_training_samples = len(training_loader.dataset)
         number_of_validation_samples = 0
         if validation_loader:
             number_of_validation_samples = len(validation_loader.dataset)
 
-        # print training and network parameters
         self.print_parameters(number_of_training_samples, number_of_epochs,
                               training_loader, learning_rate=learning_rate,
                               number_of_validation_samples=number_of_validation_samples,
@@ -331,27 +350,29 @@ class Trainer:
 
                 # iterate over all batches in the respective phase
                 for batch in dataloaders[phase]:
-                    # get inputs and targets
-                    #NOTE this is done differently on the server
+                    
                     inputs  = torch.stack(batch['inputs']).to(self.device, non_blocking=(self.device.type=="cuda"))
                     targets = torch.stack(batch['targets']).to(self.device, non_blocking=(self.device.type=="cuda"))        
 
                     with torch.set_grad_enabled(phase == 'train'):
                         
-                        # define closure (especially for optimizers like L-BFGS this is required)
+                        # define closure
                         def closure():
                             if torch.is_grad_enabled():
                                 self.optimizer.zero_grad()
-                            # get outputs to current inputs with current network weights and biases
+                            
                             outputs = self.model.network(inputs)
-                           
-                            # compute loss
-                            loss = self._compute_loss(outputs, targets)
+                            encoded_inputs = None
+                            if self.loss_mode == "symplectic":
+                                with torch.no_grad():
+                                    encoded_inputs = self.model.network.encode(inputs)
+                            
+                            loss = self._compute_loss(outputs, targets, inputs, encoded_inputs=encoded_inputs)
 
                             # back propagate loss if necessary
                             if loss.requires_grad:
                                 loss.backward()
-                            # return loss
+                            
                             return loss
 
                         # perform step of optimizer if in training phase
@@ -362,54 +383,30 @@ class Trainer:
                         if self.lr_scheduler and phase == 'train':
                             self.lr_scheduler.step()
 
-                        # compute current loss
                         loss = closure()
 
                     # update current loss
                     running_loss += loss.item() * len(batch["inputs"])
         
-                # log learning rate if necessary
-                if self.lr_scheduler and log_filename and epoch % log_frequency == 0:
-                    writer.add_scalar('average_learning_rate',
-                                      np.average(self.lr_scheduler.get_lr()),
-                                      global_step=epoch)
-
+            
                 # update loss in current epoch
                 epoch_loss = running_loss / len(dataloaders[phase].dataset)
                 losses[phase] = epoch_loss
-
-                # perform validation
-                if phase == 'val':
-                    # log losses
-                    if log_filename and epoch % log_frequency == 0:
-                        writer.add_scalars(f'losses',
-                                           {'training_loss': losses['train'],
-                                            'validation_loss': losses['val']},
-                                           global_step=epoch)
-
-                    # check if early stopping is possible
-                    if self.es_scheduler and self.es_scheduler(losses['val'], losses['train'], self.model.save_checkpoint):
-                        print()
-                        print('Early stopping...')
-                        print(f'Minimum validation loss: {self.es_scheduler.best_loss}')
-                        if log_filename:
-                            writer.close()
-
-                        return self.es_scheduler.best_loss, self.es_scheduler.training_loss
-
-            # log training loss if necessary
-            if not self.use_validation and log_filename and epoch % log_frequency == 0:
-                writer.add_scalar('training_loss', losses['train'], global_step=epoch)
-            
+ 
+                # check if early stopping is possible
+                if phase == 'val' and self.es_scheduler and self.es_scheduler(losses['val'], losses['train'], self.model.save_checkpoint):
+                    print()
+                    print('Early stopping...')
+                    print(f'Minimum validation loss: {self.es_scheduler.best_loss}')
+                    
+                    return self.es_scheduler.best_loss, self.es_scheduler.training_loss
+ 
             #print training and validation losses after each epoch
             if show_progress_bar:
                 if self.use_validation:
                     bar.update(losses['train'], losses['val'])
                 else:
                     bar.update(losses['train'])
-
-        if log_filename:
-            writer.close()
 
         if self.es_scheduler:
             return self.es_scheduler.best_loss, self.es_scheduler.training_loss
@@ -440,7 +437,6 @@ class Trainer:
             the (random) mini-batching of the validation data.
         """
 
-        # print the parameters of the neural network
         self.model.network.print_parameters()
 
         print()
