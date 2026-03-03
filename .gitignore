@@ -44,6 +44,7 @@ deep_galerkin_utilities_bdf.py
 pod_galerkin_utilities_BDF.py
 pod_galerkin_utilities_IMR.py 
 pod_lspg_utilities_IMR.py
+test_wave_pod_lspg.py
 
 # Build artifacts
 *.so
